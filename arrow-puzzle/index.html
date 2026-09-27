@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#eceffa">
+<title>Arrow Out</title>
+<style>
+  :root{--bg:#eceffa;--ink:#15161c;--muted:#7a7f99;--red:#e5484d;--green:#1f9d55;--card:#fff}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden;overscroll-behavior:none;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC",sans-serif}
+  #app{display:flex;flex-direction:column;height:100%;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 4px;max-width:560px;width:100%;margin:0 auto}
+  #level{font-size:22px;font-weight:800}
+  #hearts{font-size:22px;letter-spacing:4px}
+  #hearts .lost{opacity:.18}
+  .btns{display:flex;gap:8px}
+  button{font:inherit;border:0;border-radius:12px;cursor:pointer;background:var(--card);color:var(--ink);
+    padding:8px 12px;font-size:17px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  #sub{text-align:center;color:var(--muted);font-size:13px;height:18px}
+  #wrap{flex:1;position:relative}
+  canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+  .ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(20,22,40,.45);backdrop-filter:blur(3px)}
+  .ov.show{display:flex;animation:fade .3s ease}
+  .card{background:var(--card);padding:26px 30px;border-radius:20px;text-align:center;min-width:240px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+  .card h2{margin:0 0 6px;font-size:26px}
+  .card p{margin:4px 0 16px;color:var(--muted)}
+  .card button{background:var(--ink);color:#fff;padding:12px 26px;font-weight:700}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div id="level">Level 1</div>
+    <div id="hearts"></div>
+    <div class="btns"><button id="hintBtn" aria-label="Hint">💡</button><button id="resetBtn" aria-label="Restart">↻</button></div>
+  </header>
+  <div id="sub">点箭头，让它沿自己的方向滑出去 · Tap arrows to slide them out</div>
+  <div id="wrap"><canvas id="c"></canvas></div>
+</div>
+<div class="ov" id="winOv"><div class="card"><h2>🎉 过关!</h2><p id="winTxt"></p><button id="nextBtn">下一关 Next</button></div></div>
+<div class="ov" id="loseOv"><div class="card"><h2>💔 没命了</h2><p>撞到别的箭头会扣一颗心</p><button id="retryBtn">再试一次 Retry</button></div></div>
+
+<script>
+(() => {
+const DIRS = [[1,0],[0,1],[-1,0],[0,-1]]; // right, down, left, up
+const cv = document.getElementById('c'), ctx = cv.getContext('2d'), wrap = document.getElementById('wrap');
+let level = 1;
+try { level = Math.max(1, +localStorage.getItem('ao_level') || 1); } catch (e) {}
+
+// ---------- seeded RNG ----------
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+// ---------- level generation (always solvable) ----------
+// Each new arrow's exit ray must be clear of all arrows placed before it,
+// so removing arrows in reverse placement order always works.
+function generate(cols, rows, seed) {
+  const rng = mulberry32(seed);
+  const occ = new Int16Array(cols * rows).fill(-1);
+  const arrows = [];
+  const inB = (c, r) => c >= 0 && r >= 0 && c < cols && r < rows;
+  const maxLen = 4 + Math.floor(Math.max(cols, rows) * 0.9);
+  function rayClear(c, r, d, own) {
+    let [dc, dr] = DIRS[d]; c += dc; r += dr;
+    while (inB(c, r)) { const k = r * cols + c; if (occ[k] !== -1 || own.has(k)) return false; c += dc; r += dr; }
+    return true;
+  }
+  let fails = 0;
+  while (fails < 900) {
+    const c0 = Math.floor(rng() * cols), r0 = Math.floor(rng() * rows);
+    if (occ[r0 * cols + c0] !== -1) { fails++; continue; }
+    const cells = [[c0, r0]], own = new Set([r0 * cols + c0]), dirs = [];
+    let d = Math.floor(rng() * 4);
+    const target = 2 + Math.floor(rng() * maxLen);
+    while (cells.length < target) {
+      const [c, r] = cells[cells.length - 1];
+      const turn = rng() < 0.28;
+      const opts = turn ? [(d + 1) % 4, (d + 3) % 4, d] : [d, (d + 1) % 4, (d + 3) % 4];
+      if (turn && rng() < .5) [opts[0], opts[1]] = [opts[1], opts[0]];
+      let moved = false;
+      for (const nd of opts) {
+        const nc = c + DIRS[nd][0], nr = r + DIRS[nd][1], k = nr * cols + nc;
+        if (inB(nc, nr) && occ[k] === -1 && !own.has(k)) { cells.push([nc, nr]); own.add(k); dirs.push(nd); d = nd; moved = true; break; }
+      }
+      if (!moved) break;
+    }
+    // shorten from the head until the exit ray is clear
+    let ok = false;
+    while (cells.length >= 2) {
+      const [hc, hr] = cells[cells.length - 1], hd = dirs[dirs.length - 1];
+      if (rayClear(hc, hr, hd, own)) { ok = true; break; }
+      const [pc, pr] = cells.pop(); own.delete(pr * cols + pc); dirs.pop();
+    }
+    if (!ok) { fails++; continue; }
+    const id = arrows.length;
+    for (const [c, r] of cells) occ[r * cols + c] = id;
+    arrows.push({ id, cells, dir: dirs[dirs.length - 1], state: 'idle' });
+  }
+  return { cols, rows, occ, arrows };
+}
+function sizeFor(lv) {
+  const cols = Math.min(12, 5 + Math.floor((lv - 1) * 0.7));
+  const rows = Math.min(18, Math.round(cols * 1.45));
+  return { cols, rows };
+}
+
+// ---------- state ----------
+let G, hearts, moving = [], flashes = [], won = false, lost = false;
+function startLevel() {
+  const { cols, rows } = sizeFor(level);
+  G = generate(cols, rows, level * 7919 + 13);
+  hearts = 3; moving = []; flashes = []; won = lost = false;
+  document.getElementById('level').textContent = 'Level ' + level;
+  document.getElementById('winOv').classList.remove('show');
+  document.getElementById('loseOv').classList.remove('show');
+  renderHearts(); layout();
+}
+function renderHearts() {
+  document.getElementById('hearts').innerHTML = [0,1,2].map(i => `<span class="${i < hearts ? '' : 'lost'}">❤️</span>`).join('');
+}
+function remaining() { return G.arrows.filter(a => a.state !== 'gone' && a.state !== 'exiting').length; }
+
+// ray from an arrow's head: empty cells before blocker, and the blocker id
+function ray(a) {
+  let [c, r] = a.cells[a.cells.length - 1]; const [dc, dr] = DIRS[a.dir];
+  const cells = []; c += dc; r += dr;
+  while (c >= 0 && r >= 0 && c < G.cols && r < G.rows) {
+    const o = G.occ[r * G.cols + c];
+    if (o !== -1 && o !== a.id) return { cells, blocker: o };
+    cells.push([c, r]); c += dc; r += dr;
+  }
+  return { cells, blocker: -1 };
+}
+
+// ---------- layout ----------
+let W, H, cs, ox, oy, dpr;
+function layout() {
+  dpr = window.devicePixelRatio || 1;
+  W = wrap.clientWidth; H = wrap.clientHeight;
+  cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (!G) return;
+  cs = Math.min((W - 24) / G.cols, (H - 24) / G.rows);
+  ox = (W - cs * G.cols) / 2; oy = (H - cs * G.rows) / 2;
+}
+window.addEventListener('resize', layout);
+
+// ---------- actions ----------
+function tapArrow(a) {
+  if (a.state !== 'idle' || won || lost) return;
+  const { cells, blocker } = ray(a);
+  const [dc, dr] = DIRS[a.dir];
+  // path = body + ray + off-board extension
+  const P = a.cells.slice();
+  let [c, r] = a.cells[a.cells.length - 1];
+  const extra = (blocker === -1 ? cells.length + a.cells.length + 3 : cells.length + 1);
+  for (let i = 0; i < extra; i++) { c += dc; r += dr; P.push([c, r]); }
+  const now = performance.now();
+  if (blocker === -1) {
+    for (const [cc, rr] of a.cells) G.occ[rr * G.cols + cc] = -1;
+    a.state = 'exiting';
+    const dist = cells.length + a.cells.length + 1.5;
+    moving.push({ a, P, t0: now, kind: 'exit', dist, dur: 180 + dist * 38 });
+    vibrate(8);
+  } else {
+    a.state = 'bump';
+    const dist = cells.length + 0.3;
+    moving.push({ a, P, t0: now, kind: 'bump', dist, dur: 140 + dist * 60, blocker, hit: false });
+  }
+}
+function vibrate(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
+function hint() {
+  if (won || lost) return;
+  const free = G.arrows.filter(a => a.state === 'idle' && ray(a).blocker === -1);
+  if (free.length) flashes.push({ id: free[Math.floor(Math.random() * free.length)].id, color: 'var', green: true, t0: performance.now(), dur: 1400 });
+}
+
+cv.addEventListener('pointerdown', e => {
+  if (!G) return;
+  const rect = cv.getBoundingClientRect();
+  const gx = (e.clientX - rect.left - ox) / cs, gy = (e.clientY - rect.top - oy) / cs;
+  let best = null, bd = 0.8;
+  const c0 = Math.floor(gx), r0 = Math.floor(gy);
+  for (let r = r0 - 1; r <= r0 + 1; r++) for (let c = c0 - 1; c <= c0 + 1; c++) {
+    if (c < 0 || r < 0 || c >= G.cols || r >= G.rows) continue;
+    const o = G.occ[r * G.cols + c]; if (o === -1) continue;
+    const d = Math.hypot(gx - (c + .5), gy - (r + .5));
+    if (d < bd) { bd = d; best = G.arrows[o]; }
+  }
+  if (best) tapArrow(best);
+});
+document.getElementById('hintBtn').onclick = hint;
+document.getElementById('resetBtn').onclick = startLevel;
+document.getElementById('retryBtn').onclick = startLevel;
+document.getElementById('nextBtn').onclick = () => { level++; try { localStorage.setItem('ao_level', level); } catch (e) {} startLevel(); };
+
+// ---------- drawing ----------
+const px = (c) => ox + (c + .5) * cs, py = (r) => oy + (r + .5) * cs;
+function ptAt(P, t) {
+  const i = Math.max(0, Math.min(P.length - 2, Math.floor(t))), f = t - i;
+  return [P[i][0] + (P[i + 1][0] - P[i][0]) * f, P[i][1] + (P[i + 1][1] - P[i][1]) * f];
+}
+function drawArrow(P, s, len, color, dirIdx) {
+  const pts = [ptAt(P, s)];
+  for (let i = Math.floor(s) + 1; i < s + len; i++) pts.push(P[i]);
+  pts.push(ptAt(P, s + len));
+  ctx.strokeStyle = color; ctx.fillStyle = color;
+  ctx.lineWidth = Math.max(2.5, cs * 0.14); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(px(pts[0][0]), py(pts[0][1]));
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(px(pts[i][0]), py(pts[i][1]));
+  ctx.stroke();
+  // arrow head
+  const h = pts[pts.length - 1], hx = px(h[0]), hy = py(h[1]);
+  const [dx, dy] = DIRS[dirIdx], a = cs * 0.34, b = cs * 0.24;
+  ctx.beginPath();
+  ctx.moveTo(hx + dx * a * .55, hy + dy * a * .55);
+  ctx.lineTo(hx - dx * a * .5 - dy * b, hy - dy * a * .5 + dx * b);
+  ctx.lineTo(hx - dx * a * .5 + dy * b, hy - dy * a * .5 - dx * b);
+  ctx.closePath(); ctx.fill();
+}
+function segDir(P, t) { // direction of path segment at t (for arrowheads while turning)
+  const i = Math.max(0, Math.min(P.length - 2, Math.floor(t - 1e-6)));
+  const dx = Math.sign(P[i + 1][0] - P[i][0]), dy = Math.sign(P[i + 1][1] - P[i][1]);
+  return DIRS.findIndex(d => d[0] === dx && d[1] === dy);
+}
+const easeOut = t => 1 - Math.pow(1 - t, 3), easeIn = t => t * t;
+
+function frame(now) {
+  ctx.clearRect(0, 0, W, H);
+  if (!G) return requestAnimationFrame(frame);
+  // dots
+  ctx.fillStyle = 'rgba(40,45,80,.13)';
+  for (let r = 0; r < G.rows; r++) for (let c = 0; c < G.cols; c++) { ctx.beginPath(); ctx.arc(px(c), py(r), Math.max(1, cs * .045), 0, 7); ctx.fill(); }
+
+  flashes = flashes.filter(f => now - f.t0 < f.dur);
+  const flashColor = id => {
+    const f = flashes.find(f => f.id === id); if (!f) return null;
+    const on = Math.floor((now - f.t0) / 180) % 2 === 0;
+    return on ? (f.green ? '#1f9d55' : '#e5484d') : null;
+  };
+  const movingIds = new Set(moving.map(m => m.a.id));
+  for (const a of G.arrows) {
+    if (a.state === 'gone' || movingIds.has(a.id)) continue;
+    drawArrow(a.cells, 0, a.cells.length - 1, flashColor(a.id) || '#15161c', a.dir);
+  }
+  // animations
+  moving = moving.filter(m => {
+    const t = Math.min(1, (now - m.t0) / m.dur), L = m.a.cells.length - 1;
+    let s;
+    if (m.kind === 'exit') {
+      s = m.dist * (t < .15 ? easeIn(t / .15) * .15 / 1 * 0.6 : 0.09 + (t - .15) / .85 * 0.91);
+      drawArrow(m.P, s, L, '#15161c', segDir(m.P, s + L));
+      if (t >= 1) { m.a.state = 'gone'; checkWin(); return false; }
+    } else {
+      const half = t < .5 ? easeOut(t * 2) : 1 - easeIn((t - .5) * 2);
+      s = m.dist * half;
+      if (t >= .5 && !m.hit) {
+        m.hit = true; hearts--; renderHearts(); vibrate([30, 40, 30]);
+        flashes.push({ id: m.blocker, t0: now, dur: 700 }); flashes.push({ id: m.a.id, t0: now, dur: 700 });
+      }
+      drawArrow(m.P, s, L, flashColor(m.a.id) || '#15161c', segDir(m.P, s + L));
+      if (t >= 1) { m.a.state = 'idle'; if (hearts <= 0 && !lost) { lost = true; setTimeout(() => document.getElementById('loseOv').classList.add('show'), 400); } return false; }
+    }
+    return true;
+  });
+  requestAnimationFrame(frame);
+}
+function checkWin() {
+  if (!won && G.arrows.every(a => a.state === 'gone')) {
+    won = true;
+    document.getElementById('winTxt').textContent = `Level ${level} · ${G.arrows.length} 个箭头 · ${'❤️'.repeat(hearts)}`;
+    setTimeout(() => document.getElementById('winOv').classList.add('show'), 300);
+  }
+}
+
+startLevel();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
