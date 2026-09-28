@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f7efe0">
+<title>红楼梦·大观园 照图摆拼图</title>
+<style>
+  :root{--bg:#f7efe0;--ink:#3b2616;--red:#a8322d;--red-edge:#7e211d;--gold:#f2b51c;--ok:#2e7d4f;--paper:#fffaf0;--edge:#d9c7a8;--wood:#5a3a22}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
+    font-family:"PingFang SC","Hiragino Sans GB","Songti SC","Noto Serif SC","Microsoft YaHei",serif}
+  body{height:100dvh;padding:calc(8px + env(safe-area-inset-top)) 14px calc(12px + env(safe-area-inset-bottom))}
+  #app{height:100%;display:flex;flex-direction:column;align-items:center;max-width:1000px;margin:0 auto}
+
+  header{width:100%;display:flex;align-items:center;gap:12px}
+  #sampleBtn{flex:none;border:0;padding:0;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;font:inherit}
+  #sampleBtn img{width:clamp(64px,19vw,86px);height:clamp(64px,19vw,86px);border-radius:8px;box-shadow:0 0 0 3px var(--gold),0 3px 8px rgba(0,0,0,.25);display:block}
+  #sampleBtn span{font-size:18px;font-weight:800;margin-top:4px;color:#7a4a22}
+  .ht{flex:1;min-width:0;text-align:center}
+  h1{margin:0;font-size:clamp(24px,7.2vw,32px);font-weight:800;color:var(--red);white-space:nowrap}
+  #prog{font-size:clamp(22px,6.2vw,26px);font-weight:800;margin-top:2px;white-space:nowrap}
+  #msg{height:42px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:clamp(22px,6.4vw,28px);font-weight:800;color:var(--ok)}
+  #msg.tip{color:var(--ink)} #msg.soft{color:#b0602a}
+
+  #main{flex:1;min-height:0;width:100%;display:flex;flex-direction:column;align-items:center;gap:12px}
+  #boardWrap{flex:1 1 0;min-height:0;overflow:hidden;width:100%;display:flex;align-items:center;justify-content:center}
+  #bigSample{display:none}
+  #board{position:relative;background:var(--wood);border-radius:12px;box-shadow:0 6px 18px rgba(60,30,10,.25)}
+  #board .ghost{position:absolute;inset:3px;background-size:cover;opacity:.22;border-radius:9px;pointer-events:none}
+  body.noghost #board .ghost{display:none}
+  .cell{position:absolute;border-radius:6px;border:3px dashed rgba(255,240,210,.45);touch-action:manipulation}
+  .cell.hover{border:4px solid var(--gold);background:rgba(242,181,28,.25)}
+  .cell.pulse{animation:pulse 1s ease 3}
+  @keyframes pulse{50%{border:5px solid #3fbf6a;background:rgba(63,191,106,.35)}}
+  .piece{position:absolute;border-radius:6px;background-repeat:no-repeat;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+  .piece.new{animation:ok .9s ease}
+  @keyframes ok{0%{box-shadow:inset 0 0 0 6px #3fbf6a}100%{box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}}
+  #board.solved .piece{border-radius:0;box-shadow:none}
+
+  #trayBox{width:100%;background:#eadcc3;border-radius:16px;padding:10px;display:flex;justify-content:center;gap:12px}
+  .tp{border-radius:8px;background-repeat:no-repeat;box-shadow:0 4px 0 #b99f78, inset 0 0 0 1px rgba(0,0,0,.2);
+    touch-action:none;cursor:grab;transition:transform .12s ease}
+  .tp.sel{transform:translateY(-6px);box-shadow:0 0 0 5px var(--gold),0 8px 14px rgba(0,0,0,.35)}
+  .tp.empty{background:none !important;box-shadow:inset 0 0 0 3px dashed #cdb893;border:3px dashed #cdb893;cursor:default}
+  .tp.dragging{opacity:.25}
+  #fly{position:fixed;z-index:50;pointer-events:none;border-radius:8px;background-repeat:no-repeat;display:none;
+    box-shadow:0 0 0 4px var(--gold),0 12px 24px rgba(0,0,0,.4)}
+
+  .btns{display:flex;gap:12px;width:100%;margin-top:10px}
+  button.b{flex:1;font:inherit;font-weight:800;font-size:clamp(22px,6.2vw,27px);padding:13px 6px;border:0;border-radius:18px;cursor:pointer;touch-action:manipulation;
+    background:var(--paper);color:var(--ink);box-shadow:0 5px 0 var(--edge);outline:3px solid var(--edge);outline-offset:-3px}
+  button.b:active{transform:translateY(4px);box-shadow:0 1px 0 var(--edge)}
+
+  /* 横屏 / 平板：样图放在旁边 */
+  @media (orientation:landscape) and (min-width:700px){
+    #main{flex-direction:row;align-items:stretch}
+    #bigSample{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;flex:1}
+    #bigSample img{width:100%;max-width:420px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+    #bigSample div{font-size:24px;font-weight:800}
+    #sampleBtn{display:none}
+    #right{flex:1.2;display:flex;flex-direction:column;gap:12px;min-width:0}
+  }
+  #right{width:100%;flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}
+
+  .ov{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:20px;text-align:center;background:var(--bg);z-index:60}
+  .ov.show{display:flex}
+  #peek img{width:min(92vw,70dvh);border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+  .ovtxt{font-size:clamp(24px,7vw,30px);font-weight:800}
+  #win .big{font-size:clamp(34px,11vw,46px);font-weight:800;color:var(--red)}
+  #win img{width:min(66vw,36dvh);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+  #win .cap{font-size:clamp(22px,6.4vw,28px);font-weight:700}
+  .big-btn{font:inherit;font-weight:800;border:0;border-radius:18px;font-size:clamp(26px,8vw,32px);padding:16px 40px;min-width:260px;color:#fff;background:var(--red);box-shadow:0 6px 0 var(--red-edge);cursor:pointer}
+  .big-btn:active{transform:translateY(4px);box-shadow:0 2px 0 var(--red-edge)}
+  .link-btn{font:inherit;font-weight:800;border:0;font-size:23px;padding:6px 16px;background:transparent;color:#7a4a22;text-decoration:underline;cursor:pointer}
+  .credit{font-size:17px;color:#7a6650}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="sampleBtn" aria-label="看样图"><img id="sampleThumb" alt=""><span>样图</span></button>
+    <div class="ht"><h1>大观园 · 照图摆</h1><div id="prog"></div></div>
+  </header>
+  <div id="msg"></div>
+  <div id="main">
+    <div id="bigSample"><div>样图</div><img id="sampleBig" alt="样图"></div>
+    <div id="right">
+      <div id="boardWrap"><div id="board"></div></div>
+      <div id="trayBox"></div>
+    </div>
+  </div>
+  <div class="btns">
+    <button class="b" id="peekBtn">看大样图</button>
+    <button class="b" id="hintBtn">帮我放一块</button>
+  </div>
+</div>
+<div id="fly"></div>
+
+<div class="ov" id="peek"><img id="peekImg" alt="样图"><div class="ovtxt">点一下，回到拼图</div></div>
+<div class="ov" id="win">
+  <div class="big">拼好了！真棒！</div>
+  <img id="winImg" alt="">
+  <div class="cap" id="winCap"></div>
+  <button class="big-btn" id="nextBtn">再拼一幅</button>
+  <button class="link-btn" id="sizeBtn"></button>
+  <button class="link-btn" id="ghostBtn"></button>
+  <div class="credit">画作：清 · 孙温 绘《红楼梦》图</div>
+</div>
+
+<script>
+(() => {
+  const IMG = '../daguanyuan/';
+  const PICS = [
+    { src: IMG + 'p1.jpg', name: '大观园全景' },
+    { src: IMG + 'p2.jpg', name: '元妃省亲 · 蓼汀花溆' },
+    { src: IMG + 'p3.jpg', name: '华堂盛宴' },
+    { src: IMG + 'p4.jpg', name: '厅堂雅集' },
+  ];
+  PICS.forEach(p => { const i = new Image(); i.src = p.src; });
+  const $ = id => document.getElementById(id);
+  const board = $('board'), tray = $('trayBox'), msg = $('msg'), fly = $('fly');
+
+  let N = 4, picIdx = 0, ghost = true;
+  try {
+    N = +localStorage.getItem('dg2_n') === 3 ? 3 : 4;
+    picIdx = (+localStorage.getItem('dg2_pic') || 0) % PICS.length;
+    ghost = localStorage.getItem('dg2_ghost') !== '0';
+  } catch (e) {}
+  const save = () => { try { localStorage.setItem('dg2_n', N); localStorage.setItem('dg2_pic', picIdx); localStorage.setItem('dg2_ghost', ghost ? '1' : '0'); } catch (e) {} };
+
+  let placed = [], queue = [], sel = null, wrong = {}, solved = false, busy = false, msgTimer = null;
+  let cell = 80, gap = 3, tsz = 70;
+  const T = () => (N === 4 ? 4 : 3);           // 托盘里一次只放几块，少一点更容易
+  const pic = () => PICS[picIdx];
+
+  // 柔和提示音
+  let ac = null;
+  function tone(f, st, len, vol = 0.1) {
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      const t = ac.currentTime + st, o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      o.connect(g).connect(ac.destination); o.start(t); o.stop(t + len + 0.05);
+    } catch (e) {}
+  }
+  const soundOk = () => { tone(587, 0, 0.35); tone(784, 0.12, 0.45); };
+  const soundWin = () => [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.18, 0.6));
+
+  function say(t, cls = '', keep = false) {
+    clearTimeout(msgTimer); msg.textContent = t; msg.className = cls;
+    if (!keep) msgTimer = setTimeout(() => { msg.textContent = ''; }, 1800);
+  }
+  function paint(el, pid, size) {
+    el.style.backgroundImage = `url(${pic().src})`;
+    el.style.backgroundSize = `${size * N}px ${size * N}px`;
+    el.style.backgroundPosition = `${-(pid % N) * size}px ${-Math.floor(pid / N) * size}px`;
+  }
+  const count = () => placed.filter(Boolean).length;
+  const updateProg = () => { $('prog').textContent = `已摆好 ${count()} / ${N * N} 块`; };
+
+  // ---------- 布局 ----------
+  function layout() {
+    const tw = tray.getBoundingClientRect().width - 20;
+    tsz = Math.floor(Math.min((tw - 12 * (T() - 1)) / T(), 110));
+    tray.style.height = (tsz + 24) + 'px';
+    const r = $('boardWrap').getBoundingClientRect();
+    const S = Math.floor(Math.min(r.width, r.height, 620));
+    gap = solved ? 0 : 3;
+    board.style.width = board.style.height = S + 'px';
+    cell = (S - gap * (N + 1)) / N;
+    render();
+  }
+  window.addEventListener('resize', layout);
+  window.addEventListener('load', layout);
+  let lastMain = '';
+  if (window.ResizeObserver) new ResizeObserver(() => {
+    const r = document.getElementById('main').getBoundingClientRect(), k = Math.round(r.width) + 'x' + Math.round(r.height);
+    if (k !== lastMain) { lastMain = k; layout(); }
+  }).observe(document.getElementById('main'));
+  const cellXY = s => [gap + (s % N) * (cell + gap), gap + Math.floor(s / N) * (cell + gap)];
+
+  function render() {
+    board.innerHTML = '<div class="ghost"></div>';
+    board.firstChild.style.backgroundImage = `url(${pic().src})`;
+    for (let s = 0; s < N * N; s++) {
+      const [x, y] = cellXY(s);
+      const el = document.createElement('div');
+      el.style.cssText = `left:${x}px;top:${y}px;width:${cell}px;height:${cell}px`;
+      if (placed[s]) { el.className = 'piece'; paint(el, s, cell); }
+      else { el.className = 'cell'; el.dataset.slot = s; el.addEventListener('click', () => cellTap(s)); }
+      board.appendChild(el);
+    }
+    tray.innerHTML = '';
+    for (let i = 0; i < T(); i++) {
+      const pid = queue[i];
+      const el = document.createElement('div');
+      el.className = 'tp'; el.style.width = el.style.height = tsz + 'px';
+      if (pid === undefined) { el.classList.add('empty'); }
+      else {
+        el.dataset.pid = pid; paint(el, pid, tsz);
+        if (pid === sel) el.classList.add('sel');
+        bindDrag(el, pid);
+      }
+      tray.appendChild(el);
+    }
+    updateProg();
+  }
+  const cellEl = s => board.querySelector(`.cell[data-slot="${s}"]`);
+  const trayEl = pid => tray.querySelector(`.tp[data-pid="${pid}"]`);
+
+  // ---------- 开始 ----------
+  function start() {
+    solved = false; sel = null; wrong = {}; busy = false;
+    board.classList.remove('solved'); $('win').classList.remove('show');
+    document.body.classList.toggle('noghost', !ghost);
+    placed = Array(N * N).fill(false);
+    queue = [...Array(N * N).keys()];
+    for (let i = queue.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [queue[i], queue[j]] = [queue[j], queue[i]]; }
+    ['sampleThumb', 'sampleBig', 'peekImg'].forEach(id => $(id).src = pic().src);
+    say('先点下面一块，再点上面的位置', 'tip', true);
+    layout();
+  }
+
+  // ---------- 放置 ----------
+  function flyTo(fromRect, toRect, pid, size, done) {
+    fly.style.display = 'block'; fly.style.transition = 'none';
+    fly.style.left = fromRect.left + 'px'; fly.style.top = fromRect.top + 'px';
+    fly.style.width = fly.style.height = fromRect.width + 'px';
+    paint(fly, pid, fromRect.width);
+    fly.getBoundingClientRect();
+    fly.style.transition = 'left .32s ease, top .32s ease, width .32s ease, height .32s ease, background-size .32s ease, background-position .32s ease';
+    fly.style.left = toRect.left + 'px'; fly.style.top = toRect.top + 'px';
+    fly.style.width = fly.style.height = toRect.width + 'px';
+    paint(fly, pid, toRect.width);
+    setTimeout(() => { fly.style.display = 'none'; done && done(); }, 340);
+  }
+
+  function attempt(pid, slot, fromRect) {
+    if (placed[slot] || busy) return;
+    if (pid === slot) {
+      busy = true; sel = null;
+      const to = cellEl(slot).getBoundingClientRect();
+      const tEl = trayEl(pid); if (tEl) tEl.style.visibility = 'hidden';
+      flyTo(fromRect, to, pid, cell, () => {
+        placed[slot] = true; queue = queue.filter(q => q !== pid); busy = false;
+        render();
+        const [x, y] = cellXY(slot);
+        [...board.querySelectorAll('.piece')].find(p => p.style.left === x + 'px' && p.style.top === y + 'px')?.classList.add('new');
+        if (count() === N * N) return win();
+        soundOk(); say('放对了！');
+      });
+    } else {
+      wrong[pid] = (wrong[pid] || 0) + 1;
+      if (wrong[pid] >= 2) {
+        say('亮起来的地方就是它的位置', 'soft');
+        const c = cellEl(pid); if (c) { c.classList.remove('pulse'); void c.offsetWidth; c.classList.add('pulse'); }
+      } else say('不是这里，再看看样图', 'soft');
+      return false;
+    }
+    return true;
+  }
+
+  function cellTap(slot) {
+    if (solved || busy) return;
+    if (sel === null) { say('先点下面的一块', 'tip'); return; }
+    const t = trayEl(sel);
+    attempt(sel, slot, t.getBoundingClientRect());
+  }
+
+  // 点一下选中；也可以直接拖到上面
+  function bindDrag(el, pid) {
+    let sx, sy, dragging = false, id = null, lift = 0;
+    el.addEventListener('pointerdown', e => {
+      if (solved || busy) return;
+      sx = e.clientX; sy = e.clientY; dragging = false; id = e.pointerId;
+      lift = e.pointerType === 'mouse' ? 0 : cell * 0.35;
+      el.setPointerCapture(id);
+    });
+    el.addEventListener('pointermove', e => {
+      if (e.pointerId !== id) return;
+      if (!dragging && Math.hypot(e.clientX - sx, e.clientY - sy) > 10) {
+        dragging = true; el.classList.add('dragging');
+        fly.style.transition = 'none'; fly.style.display = 'block';
+        fly.style.width = fly.style.height = cell + 'px'; paint(fly, pid, cell);
+      }
+      if (dragging) {
+        fly.style.left = (e.clientX - cell / 2) + 'px'; fly.style.top = (e.clientY - cell / 2 - lift) + 'px';
+        board.querySelectorAll('.cell.hover').forEach(c => c.classList.remove('hover'));
+        const s = slotAt(e.clientX, e.clientY - lift); if (s !== null) cellEl(s)?.classList.add('hover');
+      }
+    });
+    const up = e => {
+      if (e.pointerId !== id) return; id = null;
+      board.querySelectorAll('.cell.hover').forEach(c => c.classList.remove('hover'));
+      if (!dragging) { // 当作“点一下”
+        sel = sel === pid ? null : pid;
+        tray.querySelectorAll('.tp').forEach(t => t.classList.toggle('sel', +t.dataset.pid === sel && t.dataset.pid !== undefined));
+        if (sel !== null) say('再点上面它该去的位置', 'tip', true);
+        return;
+      }
+      el.classList.remove('dragging');
+      const fr = fly.getBoundingClientRect();
+      const s = slotAt(e.clientX, e.clientY - lift);
+      if (s !== null && !placed[s] && attempt(pid, s, fr)) return;
+      if (s !== null && placed[s]) say('那里已经摆好了', 'soft');
+      else if (s === null) say('拖到上面的格子里', 'tip');
+      flyTo(fr, el.getBoundingClientRect(), pid, tsz, () => {});   // 回到托盘
+    };
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+  }
+  function slotAt(x, y) {
+    const r = board.getBoundingClientRect();
+    const cx = x - r.left, cy = y - r.top;
+    if (cx < 0 || cy < 0 || cx > r.width || cy > r.height) return null;
+    const c = Math.min(N - 1, Math.floor(cx / (cell + gap))), rr = Math.min(N - 1, Math.floor(cy / (cell + gap)));
+    return rr * N + c;
+  }
+
+  function hint() {
+    if (solved || busy || !queue.length) return;
+    const pid = queue[0];
+    attempt(pid, pid, trayEl(pid).getBoundingClientRect());
+  }
+
+  function win() {
+    solved = true; soundWin();
+    setTimeout(() => { board.classList.add('solved'); layout(); say('拼好了！', ''); }, 400);
+    setTimeout(() => {
+      $('winImg').src = pic().src; $('winCap').textContent = '《' + pic().name + '》';
+      $('sizeBtn').textContent = N === 4 ? '换成 9 块（容易些）' : '换成 16 块（难一点）';
+      $('ghostBtn').textContent = ghost ? '去掉格子里的淡底图（难一点）' : '格子里显示淡底图（容易些）';
+      $('win').classList.add('show');
+    }, 1900);
+  }
+
+  $('sampleBtn').onclick = $('peekBtn').onclick = () => $('peek').classList.add('show');
+  $('peek').onclick = () => $('peek').classList.remove('show');
+  $('hintBtn').onclick = hint;
+  $('nextBtn').onclick = () => { picIdx = (picIdx + 1) % PICS.length; save(); start(); };
+  $('sizeBtn').onclick = () => { N = N === 4 ? 3 : 4; save(); start(); };
+  $('ghostBtn').onclick = () => { ghost = !ghost; save(); start(); };
+  start();
+})();
+</script>
+</body>
+</html>
