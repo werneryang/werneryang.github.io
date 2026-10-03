@@ -76,7 +76,7 @@ const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 const scoreEl = document.getElementById('score'), bestEl = document.getElementById('best');
 const overEl = document.getElementById('over');
 
-let grid, tray, score, best = 0, combo, gameOver;
+let grid, tray, nextSet = null, score, best = 0, combo, gameOver;
 let placedAt;              // per-cell pop-in timestamps
 let clearing = [];         // cells animating out
 let floaters = [];         // floating score texts
@@ -87,19 +87,20 @@ let shownScore = 0;
 try { best = +localStorage.getItem('bp_best') || 0; } catch (e) {}
 
 // ---------- layout ----------
-let W, H, cell, bx, by, trayY, trayH, dpr;
+let W, H, cell, bx, by, trayY, trayH, nextY, nextH, dpr;
 function layout() {
   dpr = window.devicePixelRatio || 1;
   const header = document.querySelector('header').getBoundingClientRect().height;
   const aw = Math.min(window.innerWidth, 500);
   const ah = window.innerHeight - header - 8;
-  cell = Math.floor(Math.min((aw - 24) / N, ah / (N + 4.2)));
-  W = aw; H = Math.floor(cell * (N + 4.2));
+  cell = Math.floor(Math.min((aw - 24) / N, ah / (N + 5.5)));
+  W = aw; H = Math.floor(cell * (N + 5.5));
   cv.style.width = W + 'px'; cv.style.height = H + 'px'; cv.style.flex = 'none';
   cv.width = W * dpr; cv.height = H * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   bx = Math.floor((W - cell * N) / 2); by = Math.floor(cell * 0.3);
   trayY = by + cell * N + cell * 0.4; trayH = cell * 3.4;
+  nextY = trayY + trayH; nextH = cell * 1.3;
 }
 window.addEventListener('resize', layout);
 
@@ -119,12 +120,18 @@ function fitsAnywhere(p) {
   for (let r = 0; r <= N - p.h; r++) for (let c = 0; c <= N - p.w; c++) if (canPlace(p, r, c)) return true;
   return false;
 }
-function refill() {
-  // try to give a set where at least one piece fits
+function makeSet() {
+  // try to give a set where at least one piece fits the current board
+  let set;
   for (let tries = 0; tries < 30; tries++) {
-    tray = [randPiece(), randPiece(), randPiece()];
-    if (tray.some(fitsAnywhere)) return;
+    set = [randPiece(), randPiece(), randPiece()];
+    if (set.some(fitsAnywhere)) break;
   }
+  return set;
+}
+function refill() {
+  tray = nextSet || makeSet();   // the previewed set becomes the tray
+  nextSet = makeSet();           // and a new preview is prepared
 }
 function linesIfPlaced(p, r0, c0) {
   const g = grid.map(row => row.slice());
@@ -191,7 +198,7 @@ function newGame() {
   score = 0; shownScore = 0; combo = 0; gameOver = false;
   clearing = []; floaters = []; drag = null; returning = null;
   sessionBestAtStart = best;
-  refill();
+  nextSet = null; refill();
   overEl.classList.remove('show');
 }
 
@@ -307,6 +314,18 @@ function frame(now) {
       }
     }
     drawPiece(p, x, y, s, fits ? 1 : 0.3);
+  }
+  // next-round preview
+  if (nextSet) {
+    const ns = cell * 0.24, pad = 12;
+    ctx.fillStyle = 'rgba(255,255,255,.06)'; rr(pad, nextY + 2, W - pad * 2, nextH - 4, 12); ctx.fill();
+    ctx.fillStyle = '#9aa0d0'; ctx.font = `700 ${Math.max(12, cell * 0.3)}px -apple-system,Segoe UI,Roboto,"PingFang SC",sans-serif`;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const label = '下一组 Next', lw = ctx.measureText(label).width;
+    ctx.fillText(label, pad + 12, nextY + nextH / 2);
+    const x0 = pad + 12 + lw + 10, sw = (W - pad - x0) / 3;
+    nextSet.forEach((p, i) => drawPiece(p, x0 + sw * i + (sw - p.w * ns) / 2, nextY + (nextH - p.h * ns) / 2, ns, 0.75));
+    ctx.textBaseline = 'alphabetic';
   }
   // dragged piece
   if (drag) {
