@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#091c35"><meta name="description" content="手指左右拖动，在海上长桥收集队员、避开障碍，带领蓝队闯关。">
+<title>蓝队冲冲冲</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d80ef'/%3E%3Cpath d='M7 23V9h6v14zm12 0V9h6v14z' fill='white'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="app">
+  <header><div class="brand"><span class="mark" aria-hidden="true">Ⅱ</span><div><h1>蓝队冲冲冲</h1><p>海上长桥 · 集结出发</p></div></div><button id="pause" class="icon-button" aria-label="暂停游戏" disabled>Ⅱ</button></header>
+  <div class="hud"><div class="team-stat"><span class="dot"></span><span>蓝队</span><strong id="count">10</strong><span class="unit">人</span></div><span id="level">第 1 关</span><span id="distance">0 / 100%</span></div>
+  <div class="progress" aria-label="闯关进度"><div id="progress"></div></div>
+  <section class="stage" aria-label="游戏区域">
+    <canvas id="game" aria-label="海上桥梁跑酷游戏。手指左右拖动，或使用方向键移动。"></canvas>
+    <div id="toast" aria-live="polite"></div>
+    <div id="battle" class="battle-tag" hidden>红队来袭 · 自动攻击</div>
+    <div id="overlay" class="overlay">
+      <div class="panel">
+        <div class="eyebrow" id="eyebrow">READY TO RUN</div>
+        <h2 id="heading">人多，力量大。</h2>
+        <p id="description">左右拖动，带蓝队一起冲过长桥。</p>
+        <div id="rules" class="rules"><div><span class="rule-icon blue">+1</span><span>穿过蓝门，增加队员</span></div><div><span class="rule-icon gold">●</span><span>收集金球，每个加 3 人</span></div><div><span class="rule-icon red">!</span><span>避开路障，集结迎战红队</span></div></div>
+        <button class="primary" id="start">开始游戏 <span aria-hidden="true">▶</span></button>
+        <p class="hint" id="hint">自动前进和攻击 · 没有时间限制</p>
+      </div>
+    </div>
+    <div class="drag-hint" id="dragHint">‹　左右拖动　›</div>
+  </section>
+  <footer><button id="left" class="direction" aria-label="向左移动">‹</button><div><span id="status">集结蓝队，冲过长桥</span><small>手指拖动 / 电脑方向键</small></div><button id="right" class="direction" aria-label="向右移动">›</button></footer>
+</main>
+<script src="game.js"></script>
+</body></html>
