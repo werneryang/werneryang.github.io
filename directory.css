@@ -7,7 +7,7 @@ body {
 }
 main { max-width: 850px; margin: auto; padding: clamp(28px, 7vw, 80px) 22px; }
 header { border-top: 3px solid #24543d; padding-top: 16px; }
-.owner, .number { font: 600 .84rem ui-monospace, monospace; color: #4b6656; }
+.owner { font: 600 .84rem ui-monospace, monospace; color: #4b6656; }
 .masthead { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .language { padding: .5em 0; color: #285b42; text-underline-offset: 4px; }
 .owner { margin: 0; letter-spacing: .12em; }
@@ -17,7 +17,7 @@ nav { border-top: 1px solid #a5b1a4; }
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: clamp(12px, 3vw, 28px);
-  align-items: baseline;
+  align-items: start;
   padding: clamp(20px, 4vw, 30px) 8px;
   border-bottom: 1px solid #bdc7b9;
   color: inherit;
@@ -26,6 +26,21 @@ nav { border-top: 1px solid #a5b1a4; }
 .project:hover, .project:focus-visible { background: #eaf0e4; }
 a:focus-visible { outline: 3px solid #226749; outline-offset: 2px; }
 h2 { font-size: clamp(1.3rem, 4vw, 1.8rem); margin: 0; }
+.project-icon {
+  width: clamp(36px, 5vw, 48px);
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 25%;
+  box-shadow: 0 2px 5px #172d3029;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .project:is(:hover, :focus-visible) .project-icon {
+    animation: badge-pop .45s ease-out;
+  }
+  @keyframes badge-pop {
+    45% { transform: translateY(-3px) rotate(-5deg) scale(1.06); }
+  }
+}
 .description { margin: 6px 0 0; color: #485a50; line-height: 1.6; }
 .arrow { color: #276046; font-size: 1.4rem; }
 footer { margin-top: 24px; color: #485a50; font-size: .95rem; line-height: 1.6; }
