@@ -1,0 +1,8 @@
+h1 { font-size: clamp(2rem, 6vw, 3.6rem); overflow-wrap: anywhere; }
+p, li { line-height: 1.8; }
+section { padding: 26px 0; border-bottom: 1px solid #bdc7b9; }
+li + li { margin-top: 8px; }
+ul, ol { padding-left: 1.5rem; }
+.download { display: inline-block; padding: 12px 20px; margin: 16px 0 4px; background: #24543d; color: white; border-radius: 8px; text-decoration: none; }
+.download:hover { background: #173d2a; }
+code { overflow-wrap: anywhere; }

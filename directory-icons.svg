@@ -27,4 +27,12 @@
     <circle cx="29" cy="25" r="2.1" fill="#5c55cc"/>
     <circle cx="34" cy="21" r="2.1" fill="#d65384"/>
   </symbol>
+  <symbol id="exporter" viewBox="0 0 48 48">
+    <rect width="48" height="48" rx="12" fill="#173d47"/>
+    <path d="M12 9h17l7 7v23H12Z" fill="#d5f5ec"/>
+    <path d="M29 9v8h7" fill="#7ccbb8"/>
+    <path d="M18 20h8m-8 5h6" stroke="#3a796d" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="33" cy="33" r="11" fill="#57d3b4"/>
+    <path d="M33 26v12m-5-5 5 5 5-5" fill="none" stroke="#123d3a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
 </svg>
